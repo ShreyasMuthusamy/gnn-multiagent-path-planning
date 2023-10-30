@@ -25,9 +25,9 @@ class SwarmSimulator:
         self.dynamic = dynamic
     
     def initial(self):
-        init_pos = np.random.uniform(0, self.N * 2, (self.n_samples, self.dim, self.N))
+        init_pos = np.random.uniform(0, self.N * 5, (self.n_samples, self.dim, self.N))
         init_vel = np.zeros((self.n_samples, self.dim, self.N))
-        goal_pos = np.random.uniform(self.N * 3, self.N * 5, (self.n_samples, self.dim, self.N))
+        goal_pos = np.random.uniform(0, self.N * 5, (self.n_samples, self.dim, self.N))
         goal_vel = np.zeros((self.n_samples, self.dim, self.N)) # if !self.dynamic
         return init_pos, init_vel, goal_pos, goal_vel
     
@@ -39,7 +39,7 @@ class SwarmSimulator:
         goal_poses = np.zeros(shape=(self.n_samples, self.num_timesteps, self.dim, self.N))
         goal_vels = np.zeros(shape=(self.n_samples, self.num_timesteps, self.dim, self.N))
 
-        poses, vels = controller(pos, goal_pos) # if !self.dynamic else controller(pos, goal_pos, goal_vel)
+        poses, vels = controller(pos, goal_pos) # if not self.dynamic else controller(pos, goal_pos, goal_vel)
 
         goal_poses[:,0,:,:] = goal_pos
         goal_vels[:,0,:,:] = goal_vel
