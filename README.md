@@ -1,2 +1,2 @@
-# gnn multiagent path planning
+# Multi-agent Path Planning using GNNs
  
