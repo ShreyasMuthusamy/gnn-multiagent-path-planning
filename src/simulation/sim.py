@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from controllers import PathPlanningController
+from control.controllers import PathPlanningController
 
 class SwarmSimulator:
     '''

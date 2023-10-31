@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import os
 
 class GraphFilter(torch.nn.Module):
     def __init__(self,
@@ -107,3 +108,61 @@ class AggregateGNN(torch.nn.Module):
     def forward(self, x, S):
         output, _ = self.split_forward(x, S)
         return output
+
+class Model:
+    def __init__(self,
+                 architecture,
+                 criterion,
+                 optimizer,
+                 trainer,
+                 name,
+                 save_dir):
+        self.archit = architecture
+        self.n_params = 0
+        for param in list(self.archit.parameters()):
+            if len(param.shape) > 0:
+                np.prod(param.shape)
+
+        self.crit = criterion
+        self.optim = optimizer
+        self.trainer = trainer
+        self.name = name
+        self.save_dir = save_dir
+    
+    def train(self,
+              model,
+              simulator,
+              S,
+              poses,
+              vels,
+              goal_poses,
+              goal_vels,
+              n_epochs,
+              batch_size):
+        trainer = self.trainer(model, simulator, S, poses, vels, goal_poses, goal_vels, n_epochs, batch_size)
+        return trainer.train()
+    
+    def save(self, label='', **kwargs):
+        if 'save_dir' in kwargs.keys():
+            save_dir = kwargs['save_dir']
+        else:
+            save_dir = self.save_dir
+
+        save_model_dir = os.path.join(save_dir, 'models')
+        if not os.path.exists(save_model_dir):
+            os.makedirs(save_model_dir)
+        save_file = os.path.join(save_model_dir, self.name)
+        torch.save(self.archit.state_dict(), save_file + 'Archit' + label + '.ckpt')
+        torch.save(self.optim.state_dict(), save_file + 'Optim' + label + '.ckpt')
+    
+    def load(self, label='', **kwargs):
+        if 'load_files' in kwargs.keys():
+            (archit_load_file, optim_load_file) = kwargs['load_files']
+        else:
+            save_model_dir = os.path.join(self.save_dir, 'models')
+            archit_load_file = os.path.join(save_model_dir,
+                                          self.name + 'Archit' + label + '.ckpt')
+            archit_load_file = os.path.join(save_model_dir,
+                                         self.name + 'Optim' + label + '.ckpt')
+        self.archit.load_state_dict(torch.load(archit_load_file))
+        self.optim.load_state_dict(torch.load(optim_load_file))
