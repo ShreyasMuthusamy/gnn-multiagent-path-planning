@@ -14,14 +14,14 @@ class SwarmSimulator:
                  dim=3,
                  max_agent_acceleration=1.0,
                  sensing_radius=1.0,
-                 num_timesteps=64,
+                 n_timesteps=64,
                  dynamic=False):
         self.N = N
         self.n_samples = n_samples
         self.dim = dim
         self.max_agent_acceleration = max_agent_acceleration
         self.sensing_radius = sensing_radius
-        self.num_timesteps = num_timesteps
+        self.n_timesteps = n_timesteps
         self.dynamic = dynamic
     
     def initial(self):
@@ -34,10 +34,10 @@ class SwarmSimulator:
     def simulate(self, steps, controller: PathPlanningController):
         pos, vel, goal_pos, goal_vel = self.initial()
 
-        poses = np.zeros(shape=(self.n_samples, self.num_timesteps, self.dim, self.N))
-        vels = np.zeros(shape=(self.n_samples, self.num_timesteps, self.dim, self.N))
-        goal_poses = np.zeros(shape=(self.n_samples, self.num_timesteps, self.dim, self.N))
-        goal_vels = np.zeros(shape=(self.n_samples, self.num_timesteps, self.dim, self.N))
+        poses = np.zeros(shape=(self.n_samples, self.n_timesteps, self.dim, self.N))
+        vels = np.zeros(shape=(self.n_samples, self.n_timesteps, self.dim, self.N))
+        goal_poses = np.zeros(shape=(self.n_samples, self.n_timesteps, self.dim, self.N))
+        goal_vels = np.zeros(shape=(self.n_samples, self.n_timesteps, self.dim, self.N))
 
         poses, vels = controller(pos, goal_pos) # if not self.dynamic else controller(pos, goal_pos, goal_vel)
 
@@ -51,11 +51,11 @@ class SwarmSimulator:
         return poses, vels, goal_poses, goal_vels
     
     def animate(self, controller: PathPlanningController):
-        poses, vels, goal_poses, goal_vels = self.simulate(self.num_timesteps, controller)
+        poses, vels, goal_poses, goal_vels = self.simulate(self.n_timesteps, controller)
         last_agent = poses[-1,:,:,:]
         last_goal = goal_poses[-1,:,:,:]
 
-        for i in range(self.num_timesteps):
+        for i in range(self.n_timesteps):
             plt.scatter(last_agent[i,0,:], last_agent[i,1,:], color='b')
             plt.scatter(last_goal[i,0,:], last_goal[i,1,:], color='r')
             plt.show()

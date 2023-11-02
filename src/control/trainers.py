@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import copy
 
 class Trainer:
     def __init__(self,
@@ -67,8 +68,32 @@ class TrainerPathPlanning(Trainer):
             epoch_indices = [int(i) for i in np.random.permutation(self.n_train)]
 
             for batch in range(self.n_batches):
+                ##############
+                ## Training ##
+                ##############
+
                 batch_indices = epoch_indices[self.batch_index[batch] : self.batch_index[batch+1]]
                 X_batch = torch.tensor(X_train[batch_indices])
                 Y_batch = torch.tensor(Y_train[batch_indices])
                 S_batch = torch.tensor(S_train[batch_indices])
-                # TODO: the remainder of this training loop (as well as validation)
+                
+                archit.zero_grad()
+                Y_pred = archit(X_batch, S_batch)
+                loss = crit(Y_pred, Y_batch)
+                loss.backward()
+                optim.step()
+
+                del X_batch
+                del Y_batch
+                del S_batch
+                del loss
+
+                ################
+                ## Validation ##
+                ################
+
+                if (epoch * self.n_batches + batch) % self.validation_interval == 0:
+                    # TODO: Figure out validation scheme
+                    pass
+        
+        self.model.save(label='Last')
