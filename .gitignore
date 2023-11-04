@@ -1,2 +1,5 @@
 # Stored python cache files
 __pycache__/
+
+# Image files
+plots/

@@ -59,7 +59,7 @@ class TrainerPathPlanning(Trainer):
         crit = self.model.crit
         optim = self.model.optim
 
-        # Implement this!!
+        # TODO: Implement this!!
         X_train = None
         Y_train = None
         S_train = self.S[0:self.n_train].copy()

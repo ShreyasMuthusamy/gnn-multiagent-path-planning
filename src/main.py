@@ -1,9 +1,9 @@
 import numpy as np
 
-from control.controllers import CentralControllerStatic
+from control.controllers import CentralControllerDynamic
 from simulation.sim import SwarmSimulator
 
 if __name__ == '__main__':
-    controller = CentralControllerStatic(n_timesteps=3)
-    sim = SwarmSimulator(5, 10, dim=3, n_timesteps=3)
+    controller = CentralControllerDynamic()
+    sim = SwarmSimulator(10, 1, dim=3, dynamic=True)
     sim.animate(controller)
