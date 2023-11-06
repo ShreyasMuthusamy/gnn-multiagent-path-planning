@@ -2,6 +2,8 @@ import numpy as np
 import torch
 import copy
 
+from simulation import state
+
 class Trainer:
     def __init__(self,
                model,
@@ -60,8 +62,14 @@ class TrainerPathPlanning(Trainer):
         optim = self.model.optim
 
         # TODO: Implement this!!
-        X_train = None
-        Y_train = None
+        _, steps, _, N = self.poses.shape
+        X_train = np.zeros((self.n_train, steps, 12, N))
+        for step in range(steps):
+            X_train[:,step,:,:] = state.signal(self.poses[0:self.n_train,step,:,:],
+                                               self.vels[0:self.n_train,step,:,:],
+                                               self.goal_poses[0:self.n_train,step,:,:],
+                                               self.goal_vels[0:self.n_train,step,:,:])
+        Y_train = self.vels[0:self.n_train].copy()
         S_train = self.S[0:self.n_train].copy()
 
         for epoch in range(self.n_epochs):

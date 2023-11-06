@@ -1,11 +1,12 @@
 import numpy as np
+import torch
 import matplotlib.pyplot as plt
 import imageio
 import scipy.optimize as opt
 from scipy.spatial import distance_matrix
 
 from control.controllers import PathPlanningController
-from simulation import state
+import state
 
 class SwarmSimulator:
     '''
@@ -30,16 +31,15 @@ class SwarmSimulator:
     
     def initial(self):
         init_pos = np.random.uniform(0, self.N * 5, (self.n_samples, self.dim, self.N))
-        init_vel = np.zeros((self.n_samples, self.dim, self.N))
         goal_pos = np.random.uniform(0, self.N * 5, (self.n_samples, self.dim, self.N))
         if self.dynamic:
             goal_vel = np.random.uniform(-self.N / self.n_timesteps, self.N / self.n_timesteps, (self.n_samples, self.dim, self.N))
         else:
             goal_vel = np.zeros((self.n_samples, self.dim, self.N))
-        return init_pos, init_vel, goal_pos, goal_vel
+        return init_pos, goal_pos, goal_vel
     
     def simulate(self, steps, controller: PathPlanningController):
-        pos, vel, goal_pos, goal_vel = self.initial()
+        pos, goal_pos, goal_vel = self.initial()
 
         poses = np.zeros(shape=(self.n_samples, self.n_timesteps, self.dim, self.N))
         vels = np.zeros(shape=(self.n_samples, self.n_timesteps, self.dim, self.N))
@@ -75,6 +75,44 @@ class SwarmSimulator:
             cost += np.mean(np.linalg.norm(pos_diff, axis=1))
         
         return cost / self.n_samples
+
+    def compute_trajectory(self, archit, steps, pos, goal_pos, goal_vel):
+        batch_size = pos.shape[0]
+        dim = pos.shape[1]
+        N = pos.shape[2]
+        poses = np.zeros((batch_size, steps, dim, N))
+        vels = np.zeros((batch_size, steps, dim, N))
+        goal_poses = np.zeros((batch_size, steps, dim, N))
+        goal_vels = np.zeros((batch_size, steps, dim, N))
+        signals = np.zeros((batch_size, steps, 12, N))
+        graphs = np.zeros((batch_size, steps, N, N))
+
+        poses[:,0,:,:] = pos
+        goal_poses[:,0,:,:] = goal_pos
+        goal_vels[:,0,:,:] = goal_vel
+
+        for i in range(batch_size):
+            _, graphs[i,0,:,:] = state.agent_network(pos, N)
+
+        for t in range(1, steps):
+            curr_pos = poses[:,t-1,:,:]
+            curr_vel = vels[:,t-1,:,:]
+            curr_goal_pos = goal_poses[:,t-1,:,:]
+            curr_goal_vel = goal_vels[:,t-1,:,:]
+            curr_signal = state.signal(curr_pos, curr_vel, curr_goal_pos, curr_goal_vel)
+            signals[:,t-1,:,:] = curr_signal
+
+            X = torch.tensor(signals[:,0:t,:,:])
+            S = torch.tensor(graphs[:,0:t,:,:])
+            with torch.no_grad():
+                Y = archit(X, S)
+            vels[:,t,:,:] = Y.numpy()[:,-1,:,:]
+            poses[:,t,:,:] = curr_pos + vels[:,t,:,:]
+            goal_vels[:,t,:,:] = goal_vel
+            goal_poses[:,t,:,:] = curr_goal_pos + goal_vels[:,t,:,:]
+            graphs[:,t,:,:] = state.agent_network(poses[:,t,:,:])
+        
+        return poses, vels, goal_poses, goal_vels
     
     def animate(self, controller: PathPlanningController):
         networks, poses, vels, goal_poses, goal_vels = self.simulate(self.n_timesteps, controller)
