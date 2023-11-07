@@ -41,7 +41,7 @@ class Trainer:
             self.batch_size = [batch_size] * self.n_batches
         
         self.batch_index = np.cumsum(self.batch_size).tolist()
-        self.batch_index = [0] + self.batch_indices
+        self.batch_index = [0] + self.batch_index
 
 class TrainerPathPlanning(Trainer):
     def __init__(self,
@@ -54,7 +54,7 @@ class TrainerPathPlanning(Trainer):
                goal_vels,
                n_epochs,
                batch_size):
-        super().__init__(self, model, simulator, S, poses, vels, goal_poses, goal_vels, n_epochs, batch_size)
+        super().__init__(model, simulator, S, poses, vels, goal_poses, goal_vels, n_epochs, batch_size)
     
     def train(self):
         archit = self.model.archit
@@ -101,7 +101,26 @@ class TrainerPathPlanning(Trainer):
                 ################
 
                 if (epoch * self.n_batches + batch) % self.validation_interval == 0:
-                    # TODO: Figure out validation scheme
-                    pass
-        
+                    poses, _, goal_poses, _ = self.simulator.compute_trajectory()
+                    cost = self.simulator.cost(poses, goal_poses)
+                    print(f'(E: {epoch + 1}, B: {batch + 1}), {cost}')
+
+                    if epoch == 0 and batch == 0:
+                        best_score = cost
+                        best_epoch, best_batch = epoch, batch
+                        self.model.save(label='Best')
+                        # Start the counter
+                    else:
+                        valid_score = cost
+                        if valid_score < best_score:
+                            best_score = valid_score
+                            best_epoch, best_epoch = epoch, batch
+                            print(f'\t=> New best achieved: {best_score}')
+                            self.model.save(label='Best')
+                    del poses
+                    del goal_poses
+
         self.model.save(label='Last')
+        self.model.load(label='Best')
+        if self.n_epochs > 0:
+            print(f'\t=> Best validation achieved (E: {best_epoch + 1}, B: {best_batch + 1}): {best_score}')

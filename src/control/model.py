@@ -25,8 +25,8 @@ class GraphFilter(torch.nn.Module):
     def add_GSO(self, S: np.ndarray):
         assert len(S.shape) == 5
         assert S.shape[2] == self.E
-        self.N = self.S.shape[3]
-        assert self.N == self.S.shape[4]
+        self.N = S.shape[3]
+        assert self.N == S.shape[4]
         self.S = torch.tensor(S)
         self.B = self.S.shape[0]
         self.T = self.S.shape[1]
@@ -40,7 +40,7 @@ class GraphFilter(torch.nn.Module):
 
         x = x.reshape(self.B, self.T, 1, self.F_in, self.N).repeat(1, 1, self.E, 1, 1)
         z = x.reshape(self.B, self.T, 1, self.E, self.F_in, self.N)
-        for k in range(self.K):
+        for k in range(1, self.K):
             x, _ = torch.split(x, [self.T - 1, 1], dim=1)
             zeroRow = torch.zeros((self.B, 1, self.E, self.F_in, self.N))
             x = torch.cat((zeroRow, x), dim=1)
@@ -51,12 +51,13 @@ class GraphFilter(torch.nn.Module):
         # The filter coefficients H will be applied along the K axis
 
         z = z.permute(0, 1, 5, 3, 2, 4)
+        print(z.shape)
         z = z.reshape(self.B, self.T, self.N, self.E * self.K * self.F_in)
         H = self.H.reshape(self.F_out, self.E * self.K * self.F_in)
         H = H.permute(1, 0)
         y = torch.matmul(z, H)
         y = y.permute(0, 1, 3, 2) # Transform the output into a B x T x F_out x N size Tensor
-        if self.bias:
+        if self.bias is not None:
             y = y + self.bias
         return y
 
@@ -99,7 +100,7 @@ class AggregateGNN(torch.nn.Module):
             S = S.unsqueeze(2)
         
         for l in range(self.L):
-            self.GFL[2*l].addGSO(S)
+            self.GFL[2*l].add_GSO(S)
         z = self.GFL(x)
         y = z.permute(0, 1, 3, 2)
         y = self.readout(y).permute(0, 1, 3, 2)
@@ -130,7 +131,6 @@ class Model:
         self.save_dir = save_dir
     
     def train(self,
-              model,
               simulator,
               S,
               poses,
@@ -139,7 +139,7 @@ class Model:
               goal_vels,
               n_epochs,
               batch_size):
-        trainer = self.trainer(model, simulator, S, poses, vels, goal_poses, goal_vels, n_epochs, batch_size)
+        trainer = self.trainer(self, simulator, S, poses, vels, goal_poses, goal_vels, n_epochs, batch_size)
         return trainer.train()
     
     def save(self, label='', **kwargs):

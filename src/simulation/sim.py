@@ -6,7 +6,7 @@ import scipy.optimize as opt
 from scipy.spatial import distance_matrix
 
 from control.controllers import PathPlanningController
-import state
+from simulation import state
 
 class SwarmSimulator:
     '''
@@ -115,7 +115,7 @@ class SwarmSimulator:
         return poses, vels, goal_poses, goal_vels
     
     def animate(self, controller: PathPlanningController):
-        networks, poses, vels, goal_poses, goal_vels = self.simulate(self.n_timesteps, controller)
+        _, poses, _, goal_poses, _ = self.simulate(self.n_timesteps, controller)
         last_agent = poses[-1,:,:,:]
         last_goal = goal_poses[-1,:,:,:]
 
