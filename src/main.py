@@ -1,18 +1,18 @@
 import numpy as np
 import torch
 
-from control.controllers import CentralControllerDynamic
+from control.controllers import CentralControllerStatic
 from control.model import AggregateGNN, Model
 from control.trainers import TrainerPathPlanning
 from simulation.sim import SwarmSimulator
 
 # Parameters
 n_samples = 240
-N = 10
+N = 5
 T = 64
 
-controller = CentralControllerDynamic(n_timesteps=T)
-sim = SwarmSimulator(N, n_samples, n_timesteps=T, dynamic=True)
+controller = CentralControllerStatic(n_timesteps=T)
+sim = SwarmSimulator(N, n_samples, n_timesteps=T, dynamic=False)
 networks, poses, vels, goal_poses, goal_vels = sim.simulate(T, controller)
 
 torch_state = torch.get_rng_state()
@@ -26,11 +26,11 @@ beta1 = 0.9
 beta2 = 0.999
 
 gnn_params = dict()
-gnn_params['n_signals'] = [12, 64]
+gnn_params['n_signals'] = [18, 16, 16]
 gnn_params['n_filter_taps'] = [4]
 gnn_params['bias'] = True
 gnn_params['nonlinearity'] = torch.nn.ReLU
-gnn_params['n_readout'] = [2]
+gnn_params['n_readout'] = [3]
 gnn_params['n_edge_features'] = 1
 gnn_params['n_timesteps'] = T
 name = 'LocalGNN'
@@ -51,3 +51,5 @@ poses_valid, _, goal_poses_valid, _ = sim.compute_trajectory(archit,
                                                              goal_vels_test)
 cost = sim.cost(poses_valid, goal_poses_valid)
 print(cost)
+sim.animate(poses_valid, goal_poses_valid)
+sim.animate(poses_test, goal_poses_test)

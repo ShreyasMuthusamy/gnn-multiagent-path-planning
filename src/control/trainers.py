@@ -61,14 +61,11 @@ class TrainerPathPlanning(Trainer):
         crit = self.model.crit
         optim = self.model.optim
 
-        # TODO: Implement this!!
         _, steps, _, N = self.poses.shape
-        X_train = np.zeros((self.n_train, steps, 12, N))
+        X_train = np.zeros((self.n_train, steps, 18, N))
         for step in range(steps):
             X_train[:,step,:,:] = state.signal(self.poses[0:self.n_train,step,:,:],
-                                               self.vels[0:self.n_train,step,:,:],
-                                               self.goal_poses[0:self.n_train,step,:,:],
-                                               self.goal_vels[0:self.n_train,step,:,:])
+                                               self.goal_poses[0:self.n_train,step,:,:])
         Y_train = self.vels[0:self.n_train].copy()
         S_train = self.S[0:self.n_train].copy()
 
@@ -81,9 +78,9 @@ class TrainerPathPlanning(Trainer):
                 ##############
 
                 batch_indices = epoch_indices[self.batch_index[batch] : self.batch_index[batch+1]]
-                X_batch = torch.tensor(X_train[batch_indices])
-                Y_batch = torch.tensor(Y_train[batch_indices])
-                S_batch = torch.tensor(S_train[batch_indices])
+                X_batch = torch.tensor(X_train[batch_indices]).float()
+                Y_batch = torch.tensor(Y_train[batch_indices]).float()
+                S_batch = torch.tensor(S_train[batch_indices]).float()
                 
                 archit.zero_grad()
                 Y_pred = archit(X_batch, S_batch)
@@ -101,8 +98,15 @@ class TrainerPathPlanning(Trainer):
                 ################
 
                 if (epoch * self.n_batches + batch) % self.validation_interval == 0:
-                    poses, _, goal_poses, _ = self.simulator.compute_trajectory()
-                    cost = self.simulator.cost(poses, goal_poses)
+                    pos_valid = self.poses[220:240,0,:,:]
+                    goal_pos_valid = self.goal_poses[220:240,0,:,:]
+                    goal_vel_valid = self.goal_vels[220:240,0,:,:]
+                    poses_valid, _, goal_poses_valid, _ = self.simulator.compute_trajectory(archit,
+                                                                                            steps,
+                                                                                            pos_valid,
+                                                                                            goal_pos_valid,
+                                                                                            goal_vel_valid)
+                    cost = self.simulator.cost(poses_valid, goal_poses_valid)
                     print(f'(E: {epoch + 1}, B: {batch + 1}), {cost}')
 
                     if epoch == 0 and batch == 0:
@@ -117,10 +121,8 @@ class TrainerPathPlanning(Trainer):
                             best_epoch, best_epoch = epoch, batch
                             print(f'\t=> New best achieved: {best_score}')
                             self.model.save(label='Best')
-                    del poses
-                    del goal_poses
 
         self.model.save(label='Last')
-        self.model.load(label='Best')
+        # self.model.load(label='Best')
         if self.n_epochs > 0:
             print(f'\t=> Best validation achieved (E: {best_epoch + 1}, B: {best_batch + 1}): {best_score}')

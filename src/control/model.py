@@ -51,7 +51,6 @@ class GraphFilter(torch.nn.Module):
         # The filter coefficients H will be applied along the K axis
 
         z = z.permute(0, 1, 5, 3, 2, 4)
-        print(z.shape)
         z = z.reshape(self.B, self.T, self.N, self.E * self.K * self.F_in)
         H = self.H.reshape(self.F_out, self.E * self.K * self.F_in)
         H = H.permute(1, 0)

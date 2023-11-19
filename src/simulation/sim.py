@@ -30,8 +30,8 @@ class SwarmSimulator:
         self.dynamic = dynamic
     
     def initial(self):
-        init_pos = np.random.uniform(0, self.N * 5, (self.n_samples, self.dim, self.N))
-        goal_pos = np.random.uniform(0, self.N * 5, (self.n_samples, self.dim, self.N))
+        init_pos = np.random.uniform(0, self.N, (self.n_samples, self.dim, self.N))
+        goal_pos = np.random.uniform(self.N * 2, self.N * 3, (self.n_samples, self.dim, self.N))
         if self.dynamic:
             goal_vel = np.random.uniform(-self.N / self.n_timesteps, self.N / self.n_timesteps, (self.n_samples, self.dim, self.N))
         else:
@@ -60,15 +60,15 @@ class SwarmSimulator:
             goal_poses[:,step,:,:] = goal_poses[:,step-1,:,:] + goal_vels[:,step,:,:]
             for samp in range(self.n_samples):
                 _, networks[samp,step,:,:] = state.agent_network(poses[samp,step,:,:], self.N)
-            state.signal(poses[:,step,:,:], vels[:,step,:,:], goal_poses[:,step,:,:], goal_vels[:,step,:,:])
+            state.signal(poses[:,step,:,:], goal_poses[:,step,:,:])
         
         return networks, poses, vels, goal_poses, goal_vels
     
     def cost(self, pos, goal_pos):
         cost = 0
-        for i in range(self.n_samples):
-            samp_pos = pos[i,:,:]
-            samp_goal_pos = goal_pos[i,:,:]
+        for i in range(20):
+            samp_pos = pos[i,-1,:,:]
+            samp_goal_pos = goal_pos[i,-1,:,:]
             cost_matrix = distance_matrix(samp_pos.T, samp_goal_pos.T)
             row_ind, col_ind = opt.linear_sum_assignment(cost_matrix)
             pos_diff = samp_goal_pos[:,col_ind] - samp_pos[:,row_ind]
@@ -84,7 +84,7 @@ class SwarmSimulator:
         vels = np.zeros((batch_size, steps, dim, N))
         goal_poses = np.zeros((batch_size, steps, dim, N))
         goal_vels = np.zeros((batch_size, steps, dim, N))
-        signals = np.zeros((batch_size, steps, 12, N))
+        signals = np.zeros((batch_size, steps, 18, N))
         graphs = np.zeros((batch_size, steps, N, N))
 
         poses[:,0,:,:] = pos
@@ -92,45 +92,50 @@ class SwarmSimulator:
         goal_vels[:,0,:,:] = goal_vel
 
         for i in range(batch_size):
-            _, graphs[i,0,:,:] = state.agent_network(pos, N)
+            _, graphs[i,0,:,:] = state.agent_network(pos[i], N)
 
         for t in range(1, steps):
             curr_pos = poses[:,t-1,:,:]
             curr_vel = vels[:,t-1,:,:]
             curr_goal_pos = goal_poses[:,t-1,:,:]
             curr_goal_vel = goal_vels[:,t-1,:,:]
-            curr_signal = state.signal(curr_pos, curr_vel, curr_goal_pos, curr_goal_vel)
+            curr_signal = state.signal(curr_pos, curr_goal_pos)
             signals[:,t-1,:,:] = curr_signal
 
-            X = torch.tensor(signals[:,0:t,:,:])
-            S = torch.tensor(graphs[:,0:t,:,:])
+            X = torch.tensor(signals[:,0:t,:,:]).float()
+            S = torch.tensor(graphs[:,0:t,:,:]).float()
             with torch.no_grad():
                 Y = archit(X, S)
             vels[:,t,:,:] = Y.numpy()[:,-1,:,:]
             poses[:,t,:,:] = curr_pos + vels[:,t,:,:]
             goal_vels[:,t,:,:] = goal_vel
             goal_poses[:,t,:,:] = curr_goal_pos + goal_vels[:,t,:,:]
-            graphs[:,t,:,:] = state.agent_network(poses[:,t,:,:])
+            for i in range(batch_size):
+                _, graphs[i,t,:,:] = state.agent_network(poses[i,t,:,:], N)
         
         return poses, vels, goal_poses, goal_vels
     
-    def animate(self, controller: PathPlanningController):
-        _, poses, _, goal_poses, _ = self.simulate(self.n_timesteps, controller)
-        last_agent = poses[-1,:,:,:]
-        last_goal = goal_poses[-1,:,:,:]
+    def animate(self, poses, goal_poses):
+        last_agents = poses[-1,:,:,:]
+        last_goals = goal_poses[-1,:,:,:]
 
         filenames = []
 
         for i in range(self.n_timesteps):
             plt.cla()
 
-            fig = plt.figure()
-            ax = fig.add_subplot(projection='3d')
-            ax.scatter(last_agent[i,0,:], last_agent[i,1,:], last_agent[i,2,:], color='b')
-            ax.scatter(last_goal[i,0,:], last_goal[i,1,:], last_goal[i,2,:], color='r')
-            ax.set_xlim(-0.5 * self.N, 5.5 * self.N)
-            ax.set_ylim(-0.5 * self.N, 5.5 * self.N)
-            ax.set_zlim(-0.5 * self.N, 5.5 * self.N)
+            # fig = plt.figure()
+            # ax = fig.add_subplot(projection='3d')
+            # ax.scatter(last_agents[i,0,:], last_agents[i,1,:], last_agents[i,2,:], color='b')
+            # ax.scatter(last_goals[i,0,:], last_goals[i,1,:], last_goals[i,2,:], color='r')
+            # ax.set_xlim(-0.5 * self.N, 5.5 * self.N)
+            # ax.set_ylim(-0.5 * self.N, 5.5 * self.N)
+            # ax.set_zlim(-0.5 * self.N, 5.5 * self.N)
+
+            plt.scatter(last_agents[i,0,:], last_agents[i,1,:], color='b')
+            plt.scatter(last_goals[i,0,:], last_goals[i,1,:], color='r')
+            plt.xlim(-0.5 * self.N, 3.5 * self.N)
+            plt.ylim(-0.5 * self.N, 3.5 * self.N)
 
             plt.savefig(f'src/simulation/plots/snapshot{i+1}.png')
             filenames.append(f'src/simulation/plots/snapshot{i+1}.png')
