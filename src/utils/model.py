@@ -60,9 +60,10 @@ class GraphFilter(torch.nn.Module):
             y = y + self.bias
         return y
 
-class AggregateGNN(torch.nn.Module):
+class GNN(torch.nn.Module):
     def __init__(self,
                  n_signals,
+                 n_features,
                  n_filter_taps,
                  bias,
                  nonlinearity,
@@ -71,7 +72,8 @@ class AggregateGNN(torch.nn.Module):
                  n_timesteps=64):
         super().__init__()
         self.L = len(n_filter_taps)
-        self.F = n_signals
+        self.n_signals = n_signals
+        self.F = n_features
         self.K = n_filter_taps
         self.E = n_edge_features
         self.bias = bias
@@ -79,11 +81,25 @@ class AggregateGNN(torch.nn.Module):
         self.n_readout = n_readout
         self.n_timesteps = n_timesteps
 
+        ######## SIGNAL PROCESSING ########
+
+        p = []
+        if len(self.n_signals) > 0:
+            for l in range(len(self.n_signals) - 1):
+                p.append(torch.nn.Linear(self.n_signals[l], self.n_signals[l+1], bias=self.bias))
+                p.append(self.sigma())
+            p.append(torch.nn.Linear(self.n_signals[-1], self.F[0], bias=self.bias))
+        self.process = torch.nn.Sequential(*p)
+
+        ######## GRAPH NEURAL NETWORK ########
+
         gfl = []
         for l in range(self.L):
             gfl.append(GraphFilter(self.F[l], self.F[l+1], self.K[l], self.E, self.bias)) # append graph filter
             gfl.append(self.sigma())
         self.GFL = torch.nn.Sequential(*gfl)
+
+        ######## READOUT ########
 
         fc = []
         if len(self.n_readout) > 0:
@@ -98,9 +114,11 @@ class AggregateGNN(torch.nn.Module):
         if len(S.shape) == 4:
             S = S.unsqueeze(2)
         
+        z = x.permute(0, 1, 3, 2)
+        z = self.process(z).permute(0, 1, 3, 2)
         for l in range(self.L):
             self.GFL[2*l].add_GSO(S)
-        z = self.GFL(x)
+        z = self.GFL(z)
         y = z.permute(0, 1, 3, 2)
         y = self.readout(y).permute(0, 1, 3, 2)
         return y, z

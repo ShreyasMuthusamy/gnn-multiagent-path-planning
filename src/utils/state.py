@@ -19,38 +19,33 @@ def agent_network(poses, N, proximity=3):
 
     return network, normalized_network
 
-def signal(poses, goal_poses, agent_proximity=3, goal_proximity=3):
+def signal(poses, goal_poses, goal_proximity=3):
     n_samples = poses.shape[0]
     dim = poses.shape[1]
     N = poses.shape[2]
 
-    signal = np.zeros((n_samples, 3 * agent_proximity + 3 * goal_proximity, N))
+    signal = np.zeros((n_samples, 3 * goal_proximity + 3, N))
     for samp in range(n_samples):
         samp_signal = []
 
         for i in range(N):
             agent_signal = []
 
-            pos_diff = poses[samp,:,:] - np.tile(poses[samp,:,i].reshape(-1, 1), N)
-            pos_diff_norm = np.linalg.norm(pos_diff, axis=0)
-            indices = np.argsort(pos_diff_norm)[1:agent_proximity+1]
-            pos_diff = np.hsplit(pos_diff[:,indices], agent_proximity)
-            pos_diff = np.hstack([diff.T for diff in pos_diff])
-            agent_signal.append(pos_diff)
-        
             goal_diff = goal_poses[samp,:,:] - np.tile(poses[samp,:,i].reshape(-1, 1), N)
             goal_diff_norm = np.linalg.norm(goal_diff, axis=0)
             indices = np.argsort(goal_diff_norm)[:goal_proximity]
             goal_diff = np.hsplit(goal_diff[:,indices], goal_proximity)
             goal_diff = np.hstack([diff.T for diff in goal_diff])
-            agent_signal.append(goal_diff)
+            agent_signal.append(np.squeeze(goal_diff.T, 1))
 
-            agent_signal = np.squeeze(np.hstack(agent_signal).T, 1)
-            assert agent_signal.shape == (3 * agent_proximity + 3 * goal_proximity,)
+            agent_signal.append(poses[samp,:,i].T)
+
+            agent_signal = np.hstack(agent_signal).T
+            assert agent_signal.shape == (3 * goal_proximity + 3,)
             samp_signal.append(agent_signal)
         
         samp_signal = np.vstack(samp_signal).T
-        assert samp_signal.shape == (3 * agent_proximity + 3 * goal_proximity, N)
+        assert samp_signal.shape == (3 * goal_proximity + 3, N)
         signal[samp,:,:] = samp_signal
     
     return signal

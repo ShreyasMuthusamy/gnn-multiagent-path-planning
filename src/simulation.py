@@ -5,8 +5,8 @@ import imageio
 import scipy.optimize as opt
 from scipy.spatial import distance_matrix
 
-from control.controllers import PathPlanningController
-from simulation import state
+from utils.controllers import PathPlanningController
+from utils import state
 
 class SwarmSimulator:
     '''
@@ -30,8 +30,8 @@ class SwarmSimulator:
         self.dynamic = dynamic
     
     def initial(self):
-        init_pos = np.random.uniform(0, self.N, (self.n_samples, self.dim, self.N))
-        goal_pos = np.random.uniform(self.N * 2, self.N * 3, (self.n_samples, self.dim, self.N))
+        init_pos = np.random.uniform(0, 3 * self.N, (self.n_samples, self.dim, self.N))
+        goal_pos = np.random.uniform(0, 3 * self.N, (self.n_samples, self.dim, self.N))
         if self.dynamic:
             goal_vel = np.random.uniform(-self.N / self.n_timesteps, self.N / self.n_timesteps, (self.n_samples, self.dim, self.N))
         else:
@@ -74,7 +74,7 @@ class SwarmSimulator:
             pos_diff = samp_goal_pos[:,col_ind] - samp_pos[:,row_ind]
             cost += np.mean(np.linalg.norm(pos_diff, axis=1))
         
-        return cost / self.n_samples
+        return cost / 20
 
     def compute_trajectory(self, archit, steps, pos, goal_pos, goal_vel):
         batch_size = pos.shape[0]
@@ -84,7 +84,7 @@ class SwarmSimulator:
         vels = np.zeros((batch_size, steps, dim, N))
         goal_poses = np.zeros((batch_size, steps, dim, N))
         goal_vels = np.zeros((batch_size, steps, dim, N))
-        signals = np.zeros((batch_size, steps, 18, N))
+        signals = np.zeros((batch_size, steps, 12, N))
         graphs = np.zeros((batch_size, steps, N, N))
 
         poses[:,0,:,:] = pos
@@ -137,12 +137,12 @@ class SwarmSimulator:
             plt.xlim(-0.5 * self.N, 3.5 * self.N)
             plt.ylim(-0.5 * self.N, 3.5 * self.N)
 
-            plt.savefig(f'src/simulation/plots/snapshot{i+1}.png')
-            filenames.append(f'src/simulation/plots/snapshot{i+1}.png')
+            plt.savefig(f'src/plots/snapshot{i+1}.png')
+            filenames.append(f'src/plots/snapshot{i+1}.png')
         
         plt.close()
         
         images = []
         for filename in filenames:
             images.append(imageio.imread(filename))
-        imageio.mimsave('src/simulation/plots/sim.gif', images, fps=self.n_timesteps/2)
+        imageio.mimsave('src/plots/sim.gif', images, fps=self.n_timesteps/2)
