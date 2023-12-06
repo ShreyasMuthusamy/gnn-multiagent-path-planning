@@ -2,6 +2,8 @@ import gym
 import matplotlib.pyplot as plt
 import numpy as np
 
+from utils.graph import AgentGraph
+
 class Agent:
     def __init__(self, i):
         self.i = i
@@ -23,12 +25,15 @@ class ExpertController(gym.Env):
         self.dt = self.times[1] - self.times[0]
 
         self.n_agents = config.n_agents
-        self.state_dim_per_agent = 2 * config.dim
-        self.action_dim_per_agent = config.dim
+        self.dim = config.dim
+        self.state_dim_per_agent = 2 * self.dim
+        self.action_dim_per_agent = self.dim
         self.r_agent = config.r_agent
         # self.r_obstacle = config.r_obstacle
         # self.r_obs_sense = config.r_obs_sense
         self.r_comm = config.r_comm
+        self.graph = None
+        self.gso = None
 
         self.a_min = config.a_min
         self.a_max = config.a_max
@@ -45,14 +50,14 @@ class ExpertController(gym.Env):
         self.init_state_mean = 0.0
         self.init_state_var = 10.0
 
-        if config.dim == 2:
+        if self.dim == 2:
             self.states_name = ['x-Position (m)',
                                 'y-Position (m)',
                                 'x-Velocity (m/s)',
                                 'y-Velocity (m/s)']
             self.actions_name = ['x-Acceleration (m/s^2)',
                                  'y-Acceleration (m/s^2)']
-        elif config.dim == 3:
+        elif self.dim == 3:
             self.states_name = ['x-Position (m)',
                                 'y-Position (m)',
                                 'z-Position (m)',
@@ -75,7 +80,7 @@ class ExpertController(gym.Env):
         pass
 
     def step(self, a, compute_reward=True):
-        self.s = self.next_state(self.s, a)
+        self.s = self.update(self.s, a)
         d = self.done()
 
         if compute_reward:
@@ -96,3 +101,41 @@ class ExpertController(gym.Env):
     
     def observe(self):
         pass
+
+    def reward(self):
+        if self.graph.get_collision(self.r_agent):
+            return -1
+        
+        return 0
+
+    def reset(self):
+        pass
+
+    def update(self, s, a):
+        s_next = np.zeros((self.n))
+        dt = self.times[self.time_step+1]-self.times[self.time_step]
+
+        for agent in self.agents:
+            idx = self.state_dim_per_agent * agent.i
+            p_idx = np.arange(idx, idx+self.dim)
+            v_idx = np.arange(idx+self.dim, idx+self.dim)
+            s_next[p_idx] = self.s[p_idx] + self.s[v_idx] * dt
+            s_next[v_idx] = self.s[v_idx] + a[agent.i,:] * dt
+
+            # Ensure physical limitations are met
+            vel = np.linalg.norm(s_next[v_idx])
+            if vel > self.v_max:
+                s_next[v_idx] = s_next[v_idx] / vel * self.v_max
+        
+        self.update_agents(s_next)
+        return s_next
+    
+    def update_agents(self, s):
+        for agent in self.agents:
+            idx = self.state_dim_per_agent * agent.i
+            agent.p = s[idx:idx+self.dim]
+            agent.v = s[idx+self.dim:idx+2*self.dim]
+            agent.s = np.concatenate(agent.p, agent.v)
+
+        self.graph = AgentGraph(self.agents, self.r_comm)
+        self.gso = self.graph.get_adjacency()
