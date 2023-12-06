@@ -30,8 +30,8 @@ class SwarmSimulator:
         self.dynamic = dynamic
     
     def initial(self):
-        init_pos = np.random.uniform(0, 3 * self.N, (self.n_samples, self.dim, self.N))
-        goal_pos = np.random.uniform(0, 3 * self.N, (self.n_samples, self.dim, self.N))
+        init_pos = np.random.uniform(0, self.N, (self.n_samples, self.dim, self.N))
+        goal_pos = np.random.uniform(2 * self.N, 3 * self.N, (self.n_samples, self.dim, self.N))
         if self.dynamic:
             goal_vel = np.random.uniform(-self.N / self.n_timesteps, self.N / self.n_timesteps, (self.n_samples, self.dim, self.N))
         else:
@@ -65,14 +65,15 @@ class SwarmSimulator:
         return networks, poses, vels, goal_poses, goal_vels
     
     def cost(self, pos, goal_pos):
-        cost = 0
-        for i in range(20):
-            samp_pos = pos[i,-1,:,:]
-            samp_goal_pos = goal_pos[i,-1,:,:]
-            cost_matrix = distance_matrix(samp_pos.T, samp_goal_pos.T)
-            row_ind, col_ind = opt.linear_sum_assignment(cost_matrix)
-            pos_diff = samp_goal_pos[:,col_ind] - samp_pos[:,row_ind]
-            cost += np.mean(np.linalg.norm(pos_diff, axis=1))
+        cost = np.zeros((self.n_timesteps))
+        for step in range(self.n_timesteps):
+            for i in range(20):
+                samp_pos = pos[i,step,:,:]
+                samp_goal_pos = goal_pos[i,step,:,:]
+                cost_matrix = distance_matrix(samp_pos.T, samp_goal_pos.T)
+                row_ind, col_ind = opt.linear_sum_assignment(cost_matrix)
+                pos_diff = samp_goal_pos[:,col_ind] - samp_pos[:,row_ind]
+                cost[step] += np.mean(np.linalg.norm(pos_diff, axis=1))
         
         return cost / 20
 

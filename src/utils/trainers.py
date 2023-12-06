@@ -106,7 +106,7 @@ class TrainerPathPlanning(Trainer):
                                                                                             pos_valid,
                                                                                             goal_pos_valid,
                                                                                             goal_vel_valid)
-                    cost = self.simulator.cost(poses_valid, goal_poses_valid)
+                    cost = self.simulator.cost(poses_valid, goal_poses_valid)[-1]
                     print(f'(E: {epoch + 1}, B: {batch + 1}), {cost}')
 
                     if epoch == 0 and batch == 0:

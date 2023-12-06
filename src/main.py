@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import matplotlib.pyplot as plt
 
 from utils.controllers import CentralControllerStatic
 from utils.model import GNN, Model
@@ -8,19 +9,25 @@ from simulation import SwarmSimulator
 
 # Parameters
 n_samples = 240
-N = 100
+N = 10
 T = 64
 
 controller = CentralControllerStatic(n_timesteps=T)
 sim = SwarmSimulator(N, n_samples, n_timesteps=T, dynamic=False)
 networks, poses, vels, goal_poses, goal_vels = sim.simulate(T, controller)
-print(sim.cost(poses, goal_poses))
+plt.cla()
+plt.plot(sim.cost(poses, goal_poses))
+plt.title('Cost over time of the optimal controller')
+plt.xlabel('Time step')
+plt.ylabel('Cost')
+plt.savefig('src/plots/optimal_cost.png')
+plt.show()
 
 torch_state = torch.get_rng_state()
 torch_seed = torch.initial_seed()
 np_state = np.random.RandomState().get_state()
 
-n_epochs = 50
+n_epochs = 25
 batch_size = 20
 learning_rate = 0.01
 beta1 = 0.9
@@ -28,7 +35,7 @@ beta2 = 0.999
 
 gnn_params = dict()
 gnn_params['n_signals'] = [12]
-gnn_params['n_features'] = [16, 4]
+gnn_params['n_features'] = [16, 16]
 gnn_params['n_filter_taps'] = [4]
 gnn_params['bias'] = True
 gnn_params['nonlinearity'] = torch.nn.ReLU
@@ -52,5 +59,11 @@ poses_valid, _, goal_poses_valid, _ = sim.compute_trajectory(archit,
                                                              goal_poses_test,
                                                              goal_vels_test)
 cost = sim.cost(poses_valid, goal_poses_valid)
-print(cost)
+plt.cla()
+plt.plot(cost)
+plt.title('Cost over time of the GNN controller')
+plt.xlabel('Time step')
+plt.ylabel('Cost')
+plt.savefig('src/plots/gnn_cost.png')
+plt.show()
 sim.animate(poses_valid, goal_poses_valid)
